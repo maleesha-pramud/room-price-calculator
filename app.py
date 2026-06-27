@@ -9,12 +9,17 @@ st.set_page_config(page_title="WigerLabs Pricing Tool", layout="wide")
 hours_anchors = [3, 4, 9, 12, 24]
 day_prices_anchors = [1500, 1700, 3000, 3500, 4500]
 night_prices_anchors = [2500, 2500, 2500, 2500, 4500]
+day_ac_prices_anchors = [2500, 3000, 5000, 6000, 7500]
+night_ac_prices_anchors = [3500, 3500, 3500, 3500, 7500]
 
 # 2. THE SMART PREDICTOR FUNCTION
-def calculate_guest_price(hours, is_night):
+def calculate_guest_price(hours, is_night, is_ac=False):
     xp = hours_anchors
-    fp = night_prices_anchors if is_night == 1 else day_prices_anchors
-    
+    if is_ac:
+        fp = night_ac_prices_anchors if is_night == 1 else day_ac_prices_anchors
+    else:
+        fp = night_prices_anchors if is_night == 1 else day_prices_anchors
+
     if hours <= 3:
         return float(fp[0])
     
@@ -35,17 +40,19 @@ st.sidebar.header("Calculation Settings")
 input_hours = st.sidebar.number_input("Duration of Stay (Hours)", min_value=1.0, max_value=100.0, value=9.0, step=0.5)
 is_night = st.sidebar.selectbox("Shift Type", options=["Daytime", "Nighttime"])
 night_flag = 1 if is_night == "Nighttime" else 0
-
+is_ac = st.sidebar.checkbox("AC Room")
 # Calculate Current Price
-current_price = calculate_guest_price(input_hours, night_flag)
+current_price = calculate_guest_price(input_hours, night_flag, is_ac)
 
 # Display Result in a Big Box
-st.metric(label=f"Predicted Price ({is_night})", value=f"LKR {current_price:,.2f}")
+st.metric(label=f"Predicted Price ({is_night} {'with' if is_ac else 'without'} AC)", value=f"LKR {current_price:,.2f}")
 
 # 3. GENERATING DATA FOR THE GRAPH
 test_hours = np.linspace(1, 40, 200)
-day_plot = [calculate_guest_price(h, 0) for h in test_hours]
-night_plot = [calculate_guest_price(h, 1) for h in test_hours]
+day_plot = [calculate_guest_price(h, 0, False) for h in test_hours]
+night_plot = [calculate_guest_price(h, 1, False) for h in test_hours]
+day_ac_plot = [calculate_guest_price(h, 0, True) for h in test_hours]
+night_ac_plot = [calculate_guest_price(h, 1, True) for h in test_hours]
 
 # 4. PAINTING THE PICTURE
 fig, ax = plt.subplots(figsize=(12, 6))
@@ -53,6 +60,9 @@ fig, ax = plt.subplots(figsize=(12, 6))
 # Plot lines
 ax.plot(test_hours, day_plot, color='#FF9900', linewidth=2, label='Daytime Rate', alpha=0.5)
 ax.plot(test_hours, night_plot, color='#660099', linewidth=2, label='Nighttime Rate', alpha=0.5)
+# AC lines use distinct colors
+ax.plot(test_hours, day_ac_plot, color='#00AA00', linewidth=2, label='Daytime Rate (AC)', alpha=0.5)
+ax.plot(test_hours, night_ac_plot, color='#0066FF', linewidth=2, label='Nighttime Rate (AC)', alpha=0.5)
 
 # Mark the active calculation point
 ax.scatter(input_hours, current_price, color='red', s=150, zorder=10, label='Your Selection')
@@ -62,6 +72,8 @@ ax.annotate(f"LKR {current_price:.0f}", (input_hours, current_price), xytext=(10
 for i, h in enumerate(hours_anchors):
     ax.scatter(h, day_prices_anchors[i], color='#FF9900', s=40, alpha=0.6)
     ax.scatter(h, night_prices_anchors[i], color='#660099', s=40, alpha=0.6)
+    ax.scatter(h, day_ac_prices_anchors[i], color='#00AA00', s=40, alpha=0.6)
+    ax.scatter(h, night_ac_prices_anchors[i], color='#0066FF', s=40, alpha=0.6)
 
 # Formatting
 ax.set_title('Price Trajectory Model', fontsize=14)
